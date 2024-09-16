@@ -6,9 +6,44 @@
 
 generator client {
   provider = "prisma-client-js"
+  previewFeatures = ["fullTextSearch","fullTextIndex"]
 }
 
 datasource db {
   provider = "postgresql"
   url      = env("DATABASE_URL")
+}
+
+model User {
+  id      String @id @default(uuid())
+  email    String @unique
+  password String ?
+
+}
+model Category {
+  id          String @id @default(uuid())
+  name        String
+  characters   Character[]
+}
+
+model Character {
+  id              String @id @default(uuid())
+  userId          String
+  userName        String
+  src             String
+  name            String @db.Text
+  description     String 
+  instructions    String @db.Text
+  seed            String @db.Text
+  
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  category        Category @relation(fields: [categoryId] , references: [id])
+
+  categoryId      String
+
+  @@index([categoryId])
+  @@index([name])
+  
+
 }
