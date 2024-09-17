@@ -24,6 +24,8 @@ const formSchema = z.object({
     }),
     description: z.string().min(1,{
         message: "description is required"
+    }).max(60,{
+        message:"should not be more than 16 words"
     }),
     instructions: z.string().min(200,{
         message: "Instructions require atleast 200 characters"
@@ -82,6 +84,7 @@ export const CharacterForm=({initialData , categories}:CharacterFormProps)=>{
         })
         navigate.refresh();
         navigate.push("/");
+        navigate.refresh();
     } catch (error) {
         console.log(error)
         toast({
@@ -219,7 +222,7 @@ export const CharacterForm=({initialData , categories}:CharacterFormProps)=>{
                 control={form.control}
                 render= {({ field })=> (
                     <FormItem className="col-span-2 md:col-span-1">
-                        <FormLabel>Description</FormLabel>
+                        <FormLabel>Instructions</FormLabel>
                         <FormControl>
                             <Textarea 
                             className="bg-background resize-none"
