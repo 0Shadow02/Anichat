@@ -5,11 +5,17 @@ import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
 import { ModeToggle } from '@/components/ModeToggle'
 import { MobileSiderbar } from '@/components/mobile-sidebar'
+import { Avatar } from '@radix-ui/react-avatar'
+import { AvatarImage } from './ui/avatar'
+import { getServerSession } from 'next-auth'
+import { authoptions } from '@/app/lib/authoptions'
 const font = Poppins({
     weight: "600",
     subsets: ["latin"]
 })
-export const Navbar = () =>{
+export const Navbar =async () =>{
+    const session = await getServerSession(authoptions)
+    const userImage = session?.user?.image
     return (
         <div className='fixed w-full z-50 flex justify-between items-center py-2 px-4 border-b border-primary/10 bg-secondary h-16'>
             <div className='flex items-center'>
@@ -26,7 +32,10 @@ export const Navbar = () =>{
                 <Sparkles className='h-4 w-4 fill-white gap-x-3' />
             </Button>
             <ModeToggle/>
-            <img className="w-10 h-10 rounded-full" src="https://cdn.pixabay.com/photo/2023/08/24/08/21/anime-8210121_1280.jpg" alt="Rounded avatar" />
+            {/* <img className="w-10 h-10 rounded-full" src="https://cdn.pixabay.com/photo/2023/08/24/08/21/anime-8210121_1280.jpg" alt="Rounded avatar" /> */}
+            <Avatar className=" h-10 w-10 ">
+                <AvatarImage className='rounded-full' src={userImage ||""} />
+            </Avatar>
             </div>
         </div>
     )

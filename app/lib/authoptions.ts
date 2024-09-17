@@ -1,44 +1,44 @@
 
 import GithubProvider from "next-auth/providers/github"
 import GoogleProvider from "next-auth/providers/google";
-import CredentialsProvider from 'next-auth/providers/credentials';
+// import CredentialsProvider from 'next-auth/providers/credentials';
 import prisma from "@/lib/prismadb";
-import bcrypt from "bcrypt"
+// import bcrypt from "bcrypt"
 
 export const authoptions={
     providers: [
-      CredentialsProvider({
-          name: 'Credentials',
-          credentials: {
-            username: { label: 'email', type: 'text', placeholder: '' },
-            password: { label: 'password', type: 'password', placeholder: '' },
-          },
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          async authorize(credentials: any) {
-            if (!credentials) return null
-            const { username, password } = credentials
-              const user = await prisma.user.findFirst({
-                where:{
-                  email:username
-                }
-              })
-            if (user && bcrypt.compareSync(password, user.password || "")) {
-              return { id: user.id, email: user.email }
-            } 
-            if (!user) {
-              const hashedPassword = bcrypt.hashSync(password, 10);
-              const user=  await prisma.user.create({
-                data: {
-                  email: username, 
-                  password: hashedPassword 
-                }
-              }) 
-              const uname = user.email.split("@")[0]
-              return { id: user.id, email: user.email , name: uname };
-            }
-            throw new Error('Invalid credentials')
-          },
-        }),
+      // CredentialsProvider({
+      //     name: 'Credentials',
+      //     credentials: {
+      //       username: { label: 'email', type: 'text', placeholder: '' },
+      //       password: { label: 'password', type: 'password', placeholder: '' },
+      //     },
+      //     // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      //     async authorize(credentials: any) {
+      //       if (!credentials) return null
+      //       const { username, password } = credentials
+      //         const user = await prisma.user.findFirst({
+      //           where:{
+      //             email:username
+      //           }
+      //         })
+      //       if (user && bcrypt.compareSync(password, user.password || "")) {
+      //         return { id: user.id, email: user.email }
+      //       } 
+      //       if (!user) {
+      //         const hashedPassword = bcrypt.hashSync(password, 10);
+      //         const user=  await prisma.user.create({
+      //           data: {
+      //             email: username, 
+      //             password: hashedPassword 
+      //           }
+      //         }) 
+      //         const uname = user.email.split("@")[0]
+      //         return { id: user.id, email: user.email , name: uname };
+      //       }
+      //       throw new Error('Invalid credentials')
+      //     },
+      //   }),
 
 
         GoogleProvider({
@@ -57,7 +57,8 @@ export const authoptions={
             return {  
               id: user.id,  
               name: profile.name,  
-              email: user.email,  
+              email: user.email, 
+              image: profile.picture 
             }
           }
         },
@@ -78,7 +79,8 @@ export const authoptions={
             return {  
               id: user.id,  
               name: profile.name,  
-              email: user.email,  
+              email: user.email,
+              image: profile.picture   
             }
           }
         }),
@@ -89,6 +91,7 @@ export const authoptions={
       jwt: async ({ user, token }: any) => {
       if (user) {
           token.uid = user.id;
+         
       }
       return token;
       },
@@ -96,6 +99,7 @@ export const authoptions={
     session: ({ session, token }: any) => {
         if (session.user) {
             session.user.id = token.uid
+            
         }
         return session
     }
