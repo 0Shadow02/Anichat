@@ -18,7 +18,7 @@ export class MemoryManager {
     public constructor() {
         this.history = Redis.fromEnv();
         this.vectorDBClient = new Pinecone();
-        this.genAI = new GoogleGenerativeAI("AIzaSyDBvvHlPdmHZk3a-ZgXhv_j-Kyh7hgwAC8");
+        this.genAI = new GoogleGenerativeAI(process.env.gemini);
     }
 
     public async init() {
