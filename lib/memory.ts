@@ -1,25 +1,26 @@
-import { Redis } from "@upstash/redis"
-import { OpenAIEmbeddings } from "@langchain/openai"
-import { Pinecone } from "@pinecone-database/pinecone"
-import { PineconeStore } from "@langchain/pinecone"
+import { Redis } from "@upstash/redis";
+import { Pinecone } from "@pinecone-database/pinecone";
+import { PineconeStore } from "@langchain/pinecone";
+import { GoogleGenerativeAI } from "@google/generative-ai";
 
 export type CharacterKey = {
     characterName: string;
     modeName: string;
     userId: string;
-  };
-  
-  export class MemoryManager {
+};
+
+export class MemoryManager {
     private static instance: MemoryManager;
     private history: Redis;
     private vectorDBClient: Pinecone;
-  
+    private genAI: GoogleGenerativeAI;
+
     public constructor() {
-      this.history = Redis.fromEnv();
-      this.vectorDBClient = new Pinecone();
+        this.history = Redis.fromEnv();
+        this.vectorDBClient = new Pinecone();
+        this.genAI = new GoogleGenerativeAI("AIzaSyDBvvHlPdmHZk3a-ZgXhv_j-Kyh7hgwAC8");
     }
-  
-  
+
     public async init() {
         if (this.vectorDBClient instanceof Pinecone) {
             this.vectorDBClient = new Pinecone({
@@ -27,96 +28,96 @@ export type CharacterKey = {
             });
         }
     }
-  
 
-  public async vectorSearch(
-    recentChatHistory: string,
-    characterFileName: string
-  ) {
-    const Pinecone = <Pinecone>this.vectorDBClient;
-  
-    const pineconeIndex = Pinecone.Index(
-      process.env.PINECONE_INDEX || ""
-    );
-  
-    const vectorStore = await PineconeStore.fromExistingIndex(
-      new OpenAIEmbeddings({ openAIApiKey: process.env.OPENAI_API_KEY }),
-      { pineconeIndex }
-    );
-  
-    const similarDocs = await vectorStore
-      .similaritySearch(recentChatHistory, 3, { fileName: characterFileName })
-      .catch((err) => {
-        console.log("Failed to get vector search results", err);
-      });
+    public async vectorSearch(
+        recentChatHistory: string,
+        characterFileName: string
+    ) {
+        const Pinecone = <Pinecone>this.vectorDBClient;
 
-      return similarDocs
-  }
-    
-  public static async getInstance(): Promise<MemoryManager> {
-    if (!MemoryManager.instance) {
-        MemoryManager.instance = new MemoryManager();
-        await MemoryManager.instance.init();
-    }
-    return MemoryManager.instance;
-}
+        const pineconeIndex = Pinecone.Index(
+            process.env.PINECONE_INDEX || ""
+        );
 
-private generateRedisCharacterKey(characterKey: CharacterKey): string {
-    return `${characterKey.characterName}-${characterKey.modeName}-${characterKey.userId}`;
-}
+        const model = this.genAI.getGenerativeModel({ model: "text-embedding-004" });
+        const embeddingResult = await model.embedContent(recentChatHistory);
+        const embeddings = embeddingResult.embedding.values;
 
-public async writeToHistory(text: string, characterKey: CharacterKey) {
-    if (!characterKey || typeof characterKey.userId === "undefined") {
-        console.log("Character key set incorrectly");
-        return "";
+        const vectorStore = await PineconeStore.fromExistingIndex(
+            { embeddings },
+            { pineconeIndex }
+        );
+
+        const similarDocs = await vectorStore
+            .similaritySearch(recentChatHistory, 3, { fileName: characterFileName })
+            .catch((err) => {
+                console.log("Failed to get vector search results", err);
+            });
+
+        return similarDocs;
     }
 
-    const key = this.generateRedisCharacterKey(characterKey)
-    const result = await this.history.zadd(key, {
-        score: Date.now(),
-        member: text,
-    });
-
-    return result;
-
-}
-  
-public async readLatestHistory(characterKey: CharacterKey): Promise<string> {
-    if (!characterKey || typeof characterKey.userId === "undefined") {
-        console.log("Character key set incorrectly");
-        return "";
+    public static async getInstance(): Promise<MemoryManager> {
+        if (!MemoryManager.instance) {
+            MemoryManager.instance = new MemoryManager();
+            await MemoryManager.instance.init();
+        }
+        return MemoryManager.instance;
     }
 
-    const key = this.generateRedisCharacterKey(characterKey);
-    let result = await this.history.zrange(key, 0, Date.now(), {
-        byScore: true,
-    });
-
-    result = result.slice(-30).reverse();
-    const recentChats = result.reverse().join("\n");
-    return recentChats;
-}
-
-public async seedChatHistory(
-    seedContent: string,
-    delimiter: string = "\n",
-    characterKey: CharacterKey
-) {
-    const key = this.generateRedisCharacterKey(characterKey);
-    
-    if (await this.history.exists(key)) {
-        console.log("User already has chat history");
-        return;
+    private generateRedisCharacterKey(characterKey: CharacterKey): string {
+        return `${characterKey.characterName}-${characterKey.modeName}-${characterKey.userId}`;
     }
-    
-    const content = seedContent.split(delimiter);
-    let counter = 0;
 
-    for (const line of content) {
-        await this.history.zadd(key, { score: counter, member: line });
-        counter += 1;
+    public async writeToHistory(text: string, characterKey: CharacterKey) {
+        if (!characterKey || typeof characterKey.userId === "undefined") {
+            console.log("Character key set incorrectly");
+            return "";
+        }
+
+        const key = this.generateRedisCharacterKey(characterKey);
+        const result = await this.history.zadd(key, {
+            score: Date.now(),
+            member: text,
+        });
+
+        return result;
     }
-}
 
+    public async readLatestHistory(characterKey: CharacterKey): Promise<string> {
+        if (!characterKey || typeof characterKey.userId === "undefined") {
+            console.log("Character key set incorrectly");
+            return "";
+        }
 
+        const key = this.generateRedisCharacterKey(characterKey);
+        let result = await this.history.zrange(key, 0, Date.now(), {
+            byScore: true,
+        });
+
+        result = result.slice(-30).reverse();
+        const recentChats = result.reverse().join("\n");
+        return recentChats;
+    }
+
+    public async seedChatHistory(
+        seedContent: string,
+        delimiter: string = "\n",
+        characterKey: CharacterKey
+    ) {
+        const key = this.generateRedisCharacterKey(characterKey);
+
+        if (await this.history.exists(key)) {
+            console.log("User already has chat history");
+            return;
+        }
+
+        const content = seedContent.split(delimiter);
+        let counter = 0;
+
+        for (const line of content) {
+            await this.history.zadd(key, { score: counter, member: line });
+            counter += 1;
+        }
+    }
 }
